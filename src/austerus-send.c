@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdarg.h>
 #include <unistd.h>
 #include <getopt.h>
 #include <sys/wait.h>
@@ -14,6 +15,7 @@
 #include "protocol.h"
 #include "austerus-send.h"
 
+const char *errorLevels[3] = {"info", "warning", "error"};
 
 // Print a duration time given in seconds in the most appropriate units.
 void print_duration(time_t time)
@@ -47,8 +49,9 @@ void print_status(int pct, int taken, int estimate) {
 
 	printf("%3d%%[", pct);
 
-	for(i=0;i<(int)((float)(BAR_WIDTH - 7) * (float)pct / 100.0);i++)
+	for(i=0;i<(int)((float)(BAR_WIDTH - 7) * (float)pct / 100.0);i++) {
 		printf("=");
+	}
 
 	printf(">");
 
@@ -62,18 +65,28 @@ void print_status(int pct, int taken, int estimate) {
 
 // Print the status line to the console
 void print_status_stream(int pct, time_t start) {
-	int taken;
+	time_t taken = time(NULL) - start;
 
-	taken = time(NULL) - start;
+	if ( pct > 0 ) {
+		time_t remaining = (taken * 100 / pct) - taken;
+		printf("progress:%d:%ld:%ld\n", pct, taken, remaining);
+	} else {
+		printf("progress:%d:%ld:-\n", pct, taken);
+	}
+}
 
-	printf("%d%% complete (", pct);
+void print_message(int mode, int errorLevel, char *fmt, ...) {
+	va_list args;
+	char buf[MESSAGE_BUFFER_LEN];
+	va_start(args, fmt);
+	vsnprintf(buf, MESSAGE_BUFFER_LEN, fmt, args);
+	va_end(args);
 
-	if (pct == 0)
-		printf("unknown");
-	else
-		print_duration((taken * 100 / pct) - taken);
-
-	printf(" remaining)\n");
+	if (mode == STREAM) {
+		printf("%s:%s", errorLevels[errorLevel], buf);
+	} else {
+		printf(buf);
+	}
 }
 
 
@@ -151,22 +164,26 @@ int print_file(FILE *stream_input, size_t lines, const char *cmd,
 		// Strip out any comments
 		nbytes = filter_comments(line);
 
-		if (nbytes == 0)
+		if (nbytes == 0) {
 			continue;
+		}
 
-		if (nbytes == 1 && line[0] == '\n')
+		if (nbytes == 1 && line[0] == '\n') {
 			continue;
+		}
 
-		if (nbytes == 2 && line[0] == '\t' && line[1] == '\n')
+		if (nbytes == 2 && line[0] == '\t' && line[1] == '\n') {
 			continue;
+		}
 
 		// Write the file to the core
 		fprintf(stream_gcode, "%s", line);
 		fflush(stream_gcode);
 
-		if (verbose)
+		if (verbose) {
 			printf("SEND: %s", line);
-
+		}
+		
 		// Read any available feedback lines
 		do {
 			fbytes = nonblock_getline(line_feedback,
@@ -178,9 +195,9 @@ int print_file(FILE *stream_input, size_t lines, const char *cmd,
 						MSG_DUD_LEN) == 0) {
 					tally++;
 				}
-				if (verbose)
-					printf("FEEDBACK: %s\n",
-						line_feedback);
+				if (verbose) {
+					printf("FEEDBACK: %s\n", line_feedback);
+				}
 			}
 		} while (fbytes != -1);
 
@@ -190,10 +207,11 @@ int print_file(FILE *stream_input, size_t lines, const char *cmd,
 			return 0;
 		}
 
-		if (filament == 0)
+		if (filament == 0) {
 			pctb = 0;
-		else
+		} else {
 			pctb = 100 * table[tally] / filament;
+		}
 
 		if (pcta != pctb) {
 			pcta = pctb;
@@ -218,14 +236,14 @@ int print_file(FILE *stream_input, size_t lines, const char *cmd,
 	 */
 
 	// Block until stream is closed
-	if (pclose(stream_gcode) != 0)
+	if (pclose(stream_gcode) != 0) {
 		perror("error closing stream");
-
+	}
 	close(pipe_gcode);
 
-	if (wait(&status) != pid)
+	if (wait(&status) != pid) {
 		perror("error waiting for core");
-
+	}
 	status = WEXITSTATUS(status);
 
 	/*
@@ -249,9 +267,9 @@ int print_file(FILE *stream_input, size_t lines, const char *cmd,
 					MSG_DUD_LEN) == 0) {
 				tally++;
 			}
-			if (verbose)
+			if (verbose) {
 				printf("FEEDBACK (post): %s\n", line_feedback);
-
+			}
 			/*
 			 * TODO We should still be updating progress here */
 		}
@@ -262,12 +280,13 @@ int print_file(FILE *stream_input, size_t lines, const char *cmd,
 			(long unsigned int) lines, (long unsigned int) tally);
 	}
 
-	if (pclose(stream_feedback) != 0)
+	if (pclose(stream_feedback) != 0) {
 		perror("error closing stream");
-
-	if (line)
+	}
+	
+	if (line) {
 		free(line);
-
+	}
 	close(pipe_feedback);
 
 	return status;
@@ -360,7 +379,7 @@ int main(int argc, char *argv[])
 	asprintf(&cmd, "%s austerus-core", cmd);
 
 	for (i=optind; i<argc; i++) {
-		printf("starting print: %s\n", argv[i]);
+		print_message(mode, INFO, "starting print: %s\n", argv[i]);
 		fflush(stdout);
 
 		stream_input = fopen(argv[i], "r");
@@ -375,22 +394,23 @@ int main(int argc, char *argv[])
 			fprintf(stderr, "file contains no lines\n");
 			return EXIT_FAILURE;
 		}
-		printf("total filament length: %fmm\n", filament);
+		print_message(mode, INFO, "total filament length: %fmm\n", filament);
 
 		rewind(stream_input);
 		rc = print_file(stream_input, lines, cmd,
 			(unsigned int) filament, table, mode, verbose);
 
 		if (rc != 0) {
-			if (rc > status)
+			if (rc > status) {
 				status = rc;
+			}
 
-			printf("bad exit from core: %d\n", rc);
+			print_message(mode, ERROR, "bad exit from core: %d\n", rc);
 		}
 
 		fclose(stream_input);
 
-		printf("completed print: %s\n", argv[i]);
+		print_message(mode, INFO, "completed print: %s\n", argv[i]);
 
 		free(table);
 	}

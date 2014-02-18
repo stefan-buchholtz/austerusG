@@ -9,7 +9,7 @@
 #include "austerus-verge.h"
 
 
-float read_part(const char *arg) {
+float read_part(char *arg) {
 	char *part = strtok(arg, ":");
 
 	if (part == NULL) {
@@ -35,8 +35,7 @@ void usage(void) {
 }
 
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
 	FILE *stream_input;
 
 	int a = 0;

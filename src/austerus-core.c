@@ -75,27 +75,32 @@ int main(int argc, char* argv[]) {
 
 	// Allow special NULL string to disable serial port for testing.
 	if (serial_port) {
-		if (strcmp(serial_port, "NULL") == 0)
+		if (strcmp(serial_port, "NULL") == 0) {
 			serial_port = NULL;
+		}
 	}
 
-	if (getenv("AG_BAUDRATE"))
+	if (getenv("AG_BAUDRATE")) {
 		baudrate = strtol(getenv("AG_BAUDRATE"), NULL, 10);
+	}
 
-	if (getenv("AG_ACKCOUNT"))
+	if (getenv("AG_ACKCOUNT")) {
 		ack_count = strtol(getenv("AG_ACKCOUNT"), NULL, 10);
+	}
 
-	if (getenv("AG_VERBOSE"))
+	if (getenv("AG_VERBOSE")) {
 		verbose = strtol(getenv("AG_VERBOSE"), NULL, 10);
+	}
 
-	if (verbose > 0)
+	if (verbose > 0) {
 		fprintf(stderr, "verbose mode\n");
+	}
 
 	// Initalise serial port if required
 	if (serial_port) {
-		if (verbose > 0)
-			fprintf(stderr, "opening serial port %s\n",
-								serial_port);
+		if (verbose > 0) {
+			fprintf(stderr, "opening serial port %s\n", serial_port);
+		}
 
 		serial = serial_init(serial_port, baudrate);
 
@@ -121,6 +126,8 @@ int main(int argc, char* argv[]) {
 		usleep(SERIAL_INIT_PAUSE);
 		tcflush(serial, TCIOFLUSH);
 		usleep(SERIAL_INIT_PAUSE);
+	} else {
+		ack_count = 0;
 	}
 
 	// Open output file if required
@@ -132,13 +139,14 @@ int main(int argc, char* argv[]) {
 			return EXIT_FAILURE;
 		}
 
-		if (verbose > 0)
+		if (verbose > 0) {
 			fprintf(stderr, "output to %s\n", filename);
+		}
 	}
 
-	if (verbose > 0)
+	if (verbose > 0) {
 		fprintf(stderr, "ready\n");
-
+	}
 	// Start of main communications loop
 	while (1) {
 
@@ -150,8 +158,9 @@ int main(int argc, char* argv[]) {
 			bytes_r = getline(&line_gcode, &line_gcode_len, stdin);
 
 			// Check if stream is closed
-			if (bytes_r == -1)
+			if (bytes_r == -1) {
 				leave(EXIT_SUCCESS);
+			}
 
 			// Handle internal austerusG control commands
 			if (strncmp(line_gcode, MSG_CMD, MSG_CMD_LEN) == 0) {
@@ -166,8 +175,9 @@ int main(int argc, char* argv[]) {
 
 			if (serial_port) {
 				// Don't send empty lines
-				if (bytes_r <= 1)
+				if (bytes_r <= 1) {
 					continue;
+				}
 
 				// Write the line to the serial port
 				bytes_w = write(serial, line_gcode, bytes_r);
@@ -223,18 +233,18 @@ void process_command(char *line) {
 
 // Handle SIGTERM
 void leave(int signal) {
-	if (verbose > 0)
+	if (verbose > 0) {
 		fprintf(stderr, "dispatcher exiting\n");
-
-	if (output_file)
+	}
+	if (output_file) {
 		fclose(output_file);
-
-	if (serial_port)
+	}
+	if (serial_port) {
 		close(serial);
-
-	if (line_gcode)
+	}
+	if (line_gcode) {
 		free(line_gcode);
-
+	}
 	exit(signal);
 }
 
