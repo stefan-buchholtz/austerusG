@@ -13,30 +13,29 @@
 #include <stdio.h>
 #include <stdlib.h> 
 #include <stdint.h>
+#include <stdbool.h>
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
-#include <termios.h>
-#include <sys/ioctl.h>
+#include <linux/termios.h>
 
 #include "serial.h"
 
+int set_custom_baudrate(int serial, int baud);
 
 // Open serial port from name and baud rate and return file desciptor
 int serial_init(const char* serialport, int baud) {
-	struct termios toptions;
 	int serial;
 
 	serial = open(serialport, O_RDWR | O_NOCTTY);
-	if (serial == -1)
+	if (serial == -1) {
 		return -1;
-
-	if (tcgetattr(serial, &toptions) < 0)
-		return -1;
+	}
 
 	// set the baud rate
 	speed_t brate;
+	bool isCustomBaudRate = false;
 
 	switch (baud) {
 #ifdef B4800
@@ -105,12 +104,22 @@ int serial_init(const char* serialport, int baud) {
 			break;
 #endif
 		default:
-			perror("Invalid baudrate");
-			return -1;
+			isCustomBaudRate = true;
 	}
 
-	cfsetispeed(&toptions, brate);
-	cfsetospeed(&toptions, brate);
+	struct termios2 toptions;
+	if (ioctl(serial, TCGETS2, &toptions) < 0) {
+		return -1;
+	}
+	if ( !isCustomBaudRate ) {
+		toptions.c_cflag &= ~CBAUD;
+		toptions.c_cflag |= brate;
+	} else {
+		toptions.c_cflag &= ~CBAUD;
+		toptions.c_cflag |= BOTHER;
+		toptions.c_ispeed = baud;
+		toptions.c_ospeed = baud;		
+	}
 
 	// 8N1
 	toptions.c_cflag &= ~PARENB;
@@ -135,12 +144,12 @@ int serial_init(const char* serialport, int baud) {
 	toptions.c_cc[VMIN] = SERIAL_VMIN;
 	toptions.c_cc[VTIME] = SERIAL_VTIME;
 
-	if (tcsetattr(serial, TCSANOW, &toptions) < 0)
+	if (ioctl(serial, TCSETS2, &toptions) < 0) {
 		return -1;
+	}
 
 	return serial;
 }
-
 
 // Read a complete line from the serial port
 int serial_getline(int serial, char *buffer, int timeout) {
