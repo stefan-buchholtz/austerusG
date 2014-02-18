@@ -1,4 +1,9 @@
 *.o
+*/*.o
+*/.DS_Store
+*/._*
+.DS_Store
+._*
 austerus-core
 austerus-send
 austerus-verge
