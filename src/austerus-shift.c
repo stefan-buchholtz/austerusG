@@ -4,6 +4,11 @@
 #include <getopt.h>
 #include <string.h>
 
+#ifdef __MACH__
+// compiling for Mac, use fmemopen replacement
+#include "fmemopen/fmemopen.h"
+#endif 
+
 #include "stats.h"
 
 

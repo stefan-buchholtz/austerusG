@@ -4,6 +4,8 @@ BINDIR ?= $(PREFIX)/bin
 MANDIR ?= $(PREFIX)/share/man
 CC ?= gcc -Wall -pedantic -Wno-long-long -Wno-deprecated -ansi
 
+UNAME := $(shell uname)
+
 SETUID ?= 0
 
 ifeq ($(SETUID),1)
@@ -30,8 +32,13 @@ austerus-send: nbgetline.o popen2.o stats.o serial.o austerus-send.o
 austerus-verge: stats.o austerus-verge.o
 	$(CC) -o austerus-verge build/stats.o build/austerus-verge.o -lm
 
+ifeq ($(UNAME), Darwin)
+austerus-shift: stats.o austerus-shift.o fmemopen.o
+	$(CC) -o austerus-shift build/stats.o build/fmemopen.o build/austerus-shift.o -lm
+else
 austerus-shift: stats.o austerus-shift.o
 	$(CC) -o austerus-shift build/stats.o build/austerus-shift.o -lm
+endif
 
 austerus-core: serial.o austerus-core.o
 	$(CC) -o austerus-core build/serial.o build/austerus-core.o
@@ -62,6 +69,11 @@ popen2.o: src/popen2.c
 
 nbgetline.o: src/nbgetline.c
 	$(CC) -c -o build/nbgetline.o src/nbgetline.c
+
+ifeq ($(UNAME), Darwin)
+fmemopen.o:
+	$(CC) -c -o build/fmemopen.o src/fmemopen/fmemopen.c
+endif
 
 install:
 	$(INSTALL) -d $(DESTDIR)$(BINDIR)

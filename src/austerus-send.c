@@ -8,6 +8,7 @@
 #include <string.h>
 #include <fcntl.h>
 #include <time.h>
+#include <signal.h>
 
 #include "popen2.h"
 #include "nbgetline.h"
@@ -85,7 +86,7 @@ void print_message(int mode, int errorLevel, char *fmt, ...) {
 	if (mode == STREAM) {
 		printf("%s:%s", errorLevels[errorLevel], buf);
 	} else {
-		printf(buf);
+		fwrite(buf, 1, strlen(buf), stdout);
 	}
 }
 

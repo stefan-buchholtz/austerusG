@@ -18,7 +18,13 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
+
+#ifdef __linux__
 #include <linux/termios.h>
+#else
+#include <termios.h>
+#include <sys/ioctl.h>
+#endif
 
 #include "serial.h"
 
@@ -107,19 +113,33 @@ int serial_init(const char* serialport, int baud) {
 			isCustomBaudRate = true;
 	}
 
+#ifdef __linux__
 	struct termios2 toptions;
-	if (ioctl(serial, TCGETS2, &toptions) < 0) {
+	if (ioctl(serial, TCGETS, &toptions) < 0) {
 		return -1;
 	}
-	if ( !isCustomBaudRate ) {
-		toptions.c_cflag &= ~CBAUD;
-		toptions.c_cflag |= brate;
-	} else {
+	if ( isCustomBaudRate ) {
 		toptions.c_cflag &= ~CBAUD;
 		toptions.c_cflag |= BOTHER;
 		toptions.c_ispeed = baud;
 		toptions.c_ospeed = baud;		
+	} else {
+		toptions.c_cflag &= ~CBAUD;
+		toptions.c_cflag |= brate;
 	}
+#else
+	struct termios toptions;
+	if (tcgetattr(serial, &toptions) < 0) {
+		return -1;
+	}
+	if ( isCustomBaudRate ) {
+		perror("Invalid baudrate");
+		return -1;
+	} else {
+		cfsetispeed(&toptions, brate);
+		cfsetospeed(&toptions, brate);
+	}
+#endif
 
 	// 8N1
 	toptions.c_cflag &= ~PARENB;
@@ -144,9 +164,15 @@ int serial_init(const char* serialport, int baud) {
 	toptions.c_cc[VMIN] = SERIAL_VMIN;
 	toptions.c_cc[VTIME] = SERIAL_VTIME;
 
-	if (ioctl(serial, TCSETS2, &toptions) < 0) {
+#ifdef __linux__
+	if (ioctl(serial, TCSETS, &toptions) < 0) {
 		return -1;
 	}
+#else
+	if (tcsetattr(serial, TCSANOW, &toptions) < 0) {
+		return -1;
+	}
+#endif
 
 	return serial;
 }
