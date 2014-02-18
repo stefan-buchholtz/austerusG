@@ -34,7 +34,7 @@ int set_custom_baudrate(int serial, int baud);
 int serial_init(const char* serialport, int baud) {
 	int serial;
 
-	serial = open(serialport, O_RDWR | O_NOCTTY);
+	serial = open(serialport, O_RDWR | O_NOCTTY | O_NONBLOCK);
 	if (serial == -1) {
 		return -1;
 	}
@@ -115,7 +115,7 @@ int serial_init(const char* serialport, int baud) {
 
 #ifdef __linux__
 	struct termios2 toptions;
-	if (ioctl(serial, TCGETS, &toptions) < 0) {
+	if (ioctl(serial, TCGETS2, &toptions) < 0) {
 		return -1;
 	}
 	if ( isCustomBaudRate ) {
@@ -129,11 +129,13 @@ int serial_init(const char* serialport, int baud) {
 	}
 #else
 	struct termios toptions;
-	if (tcgetattr(serial, &toptions) < 0) {
+	//fprintf(stderr, "tcgetattr");
+	if ( tcgetattr(serial, &toptions) < 0 ) {
+		perror("tcgetattr returned error");
 		return -1;
 	}
 	if ( isCustomBaudRate ) {
-		perror("Invalid baudrate");
+		fprintf(stderr, "Invalid baudrate %d\n", baud);
 		return -1;
 	} else {
 		cfsetispeed(&toptions, brate);
@@ -165,11 +167,14 @@ int serial_init(const char* serialport, int baud) {
 	toptions.c_cc[VTIME] = SERIAL_VTIME;
 
 #ifdef __linux__
-	if (ioctl(serial, TCSETS, &toptions) < 0) {
+	if (ioctl(serial, TCSETS2, &toptions) < 0) {
+		perror("ioctl TCSETS2 returned error");
 		return -1;
 	}
 #else
+	//fprintf(stderr, "tcgetattr");
 	if (tcsetattr(serial, TCSANOW, &toptions) < 0) {
+		perror("tcsetattr returned error");
 		return -1;
 	}
 #endif
@@ -204,10 +209,11 @@ int serial_getline(int serial, char *buffer, int timeout) {
 	} while (byte[0] != '\n' && retries > 0);
 
 	// Remove end of line characters and null terminate the string
-	if (buffer[i - 2] == '\r')
+	if (buffer[i - 2] == '\r') {
 		i -= 2;
-	else
+	} else {
 		i -= 1;
+	}
 
 	buffer[i] = 0;
 

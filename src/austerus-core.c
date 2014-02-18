@@ -94,6 +94,11 @@ int main(int argc, char* argv[]) {
 
 	if (verbose > 0) {
 		fprintf(stderr, "verbose mode\n");
+		if (filename) {
+			fprintf(stderr, "log filename: %s\n", filename);
+		} else {
+			fprintf(stderr, "no logfile\n");
+		}
 	}
 
 	// Initalise serial port if required
@@ -109,6 +114,10 @@ int main(int argc, char* argv[]) {
 			return EXIT_FAILURE;
 		}
 
+		if (verbose > 0) {
+			fprintf(stderr, "serial port %s opened\n", serial_port);
+		}
+		
 		usleep(SERIAL_INIT_PAUSE);
 		tcflush(serial, TCIOFLUSH);
 		usleep(SERIAL_INIT_PAUSE);
