@@ -220,7 +220,6 @@ int main(int argc, char* argv[]) {
 				ack_outstanding--;
 				printf("%s\n", line_feedback);
 				fflush(stdout);
-
 			} else {
 				// If the line is not an ACK then just send to
 				// stdout.

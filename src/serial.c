@@ -27,9 +27,7 @@
 #endif
 
 #ifdef __MACH__
-#define SERIAL_FLAGS	O_RDWR | O_NOCTTY | O_NONBLOCK
-#else
-#define SERIAL_FLAGS	O_RDWR | O_NOCTTY
+#include <IOKit/serial/ioss.h>
 #endif 
 
 #include "serial.h"
@@ -40,18 +38,20 @@ int set_custom_baudrate(int serial, int baud);
 int serial_init(const char* serialport, int baud) {
 	int serial;
 	
+	// fprintf(stderr, "opening serial port\n");
 	serial = open(serialport, O_RDWR | O_NOCTTY | O_NONBLOCK);
 	if (serial == -1) {
 		return -1;
 	}
 
-	// set 
+	// fprintf(stderr, "setting serial port exclusive\n");
     if (ioctl(serial, TIOCEXCL) == -1) {
 		return -1;
     }
     
     // Now that the device is open, clear the O_NONBLOCK flag so subsequent I/O will block.
     // See fcntl(2) <x-man-page//2/fcntl> for details.
+	// fprintf(stderr, "setting serial port to blocking mode\n");
     if (fcntl(serial, F_SETFL, 0) == -1) {
 		return -1;
     }
@@ -146,15 +146,12 @@ int serial_init(const char* serialport, int baud) {
 	}
 #else
 	struct termios toptions;
-	//fprintf(stderr, "tcgetattr");
+	// fprintf(stderr, "tcgetattr\n");
 	if ( tcgetattr(serial, &toptions) < 0 ) {
 		perror("tcgetattr returned error");
 		return -1;
 	}
-	if ( isCustomBaudRate ) {
-		fprintf(stderr, "Invalid baudrate %d\n", baud);
-		return -1;
-	} else {
+	if ( !isCustomBaudRate ) {
 		cfsetispeed(&toptions, brate);
 		cfsetospeed(&toptions, brate);
 	}
@@ -189,10 +186,20 @@ int serial_init(const char* serialport, int baud) {
 		return -1;
 	}
 #else
-	//fprintf(stderr, "tcgetattr");
+	// fprintf(stderr, "tcgetattr\n");
 	if (tcsetattr(serial, TCSANOW, &toptions) < 0) {
 		perror("tcsetattr returned error");
 		return -1;
+	}
+#endif
+
+#ifdef __MACH__
+	if ( isCustomBaudRate ) {
+		speed_t speed = baud;
+	    if (ioctl(serial, IOSSIOSPEED, &speed) == -1) {
+			perror("Error setting custom baud rate");
+			return -1;
+	    }
 	}
 #endif
 

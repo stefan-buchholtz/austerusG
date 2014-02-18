@@ -159,8 +159,9 @@ int print_file(FILE *stream_input, size_t lines, const char *cmd,
 	while (nbytes != -1) {
 		// Read the next line from file
 		nbytes = getline(&line, &line_len, stream_input);
-		if (nbytes < 0)
+		if (nbytes < 0) {
 			break;
+		}
 
 		// Strip out any comments
 		nbytes = filter_comments(line);
@@ -187,8 +188,7 @@ int print_file(FILE *stream_input, size_t lines, const char *cmd,
 		
 		// Read any available feedback lines
 		do {
-			fbytes = nonblock_getline(line_feedback,
-				stream_feedback);
+			fbytes = nonblock_getline(line_feedback, stream_feedback);
 			if (fbytes > 0) {
 				if (strncmp(line_feedback, MSG_ACK,
 						MSG_ACK_LEN) == 0 ||
@@ -228,8 +228,9 @@ int print_file(FILE *stream_input, size_t lines, const char *cmd,
 		}
 	}
 
-	if (mode == NORMAL)
+	if (mode == NORMAL) {
 		printf("\n");
+	}
 
 	/*
 	 * Now we have written and flushed all outgoing gcode we can close the
@@ -238,7 +239,7 @@ int print_file(FILE *stream_input, size_t lines, const char *cmd,
 
 	// Block until stream is closed
 	if (pclose(stream_gcode) != 0) {
-		perror("error closing stream");
+		perror("error closing output stream");
 	}
 	close(pipe_gcode);
 
@@ -282,7 +283,7 @@ int print_file(FILE *stream_input, size_t lines, const char *cmd,
 	}
 
 	if (pclose(stream_feedback) != 0) {
-		perror("error closing stream");
+		perror("error closing feedback stream");
 	}
 	
 	if (line) {
