@@ -26,6 +26,12 @@
 #include <sys/ioctl.h>
 #endif
 
+#ifdef __MACH__
+#define SERIAL_FLAGS	O_RDWR | O_NOCTTY | O_NONBLOCK
+#else
+#define SERIAL_FLAGS	O_RDWR | O_NOCTTY
+#endif 
+
 #include "serial.h"
 
 int set_custom_baudrate(int serial, int baud);
@@ -33,11 +39,22 @@ int set_custom_baudrate(int serial, int baud);
 // Open serial port from name and baud rate and return file desciptor
 int serial_init(const char* serialport, int baud) {
 	int serial;
-
+	
 	serial = open(serialport, O_RDWR | O_NOCTTY | O_NONBLOCK);
 	if (serial == -1) {
 		return -1;
 	}
+
+	// set 
+    if (ioctl(serial, TIOCEXCL) == -1) {
+		return -1;
+    }
+    
+    // Now that the device is open, clear the O_NONBLOCK flag so subsequent I/O will block.
+    // See fcntl(2) <x-man-page//2/fcntl> for details.
+    if (fcntl(serial, F_SETFL, 0) == -1) {
+		return -1;
+    }
 
 	// set the baud rate
 	speed_t brate;
